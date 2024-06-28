@@ -318,6 +318,29 @@ static void vkcapture_source_destroy(void *data)
     bfree(ctx);
 }
 
+static void vkcapture_get_hooked(void *data, calldata_t *cd)
+{
+	struct vkcapture_source_t *ctx = data;
+	if (!ctx)
+		return;
+
+	if(ctx->client_id) {
+		pthread_mutex_lock(&server.mutex);
+    	vkcapture_client_t *client = find_client_by_id(ctx->client_id);
+	    if (client) {
+			calldata_set_bool(cd, "hooked", true);
+			calldata_set_string(cd, "executable", client->cdata.exe);
+
+			pthread_mutex_unlock(&server.mutex);
+        	return;
+	    }
+		pthread_mutex_unlock(&server.mutex);
+	}
+
+	calldata_set_bool(cd, "hooked", false);
+	calldata_set_string(cd, "executable", "");
+}
+
 static void vkcapture_source_update(void *data, obs_data_t *settings)
 {
     vkcapture_source_t *ctx = data;
@@ -350,6 +373,12 @@ static void *vkcapture_source_create(obs_data_t *settings, obs_source_t *source)
     vkcapture_source_update(ctx, settings);
 
     cursor_create(ctx);
+
+	proc_handler_t *ph = obs_source_get_proc_handler(source);
+	proc_handler_add(
+		ph,
+		"void get_hooked(out bool hooked, out string executable)",
+		game_capture_get_hooked, gc);
 
     UNUSED_PARAMETER(settings);
     return ctx;
