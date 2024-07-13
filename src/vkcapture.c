@@ -352,6 +352,12 @@ static void *vkcapture_source_create(obs_data_t *settings, obs_source_t *source)
 
     cursor_create(ctx);
 
+    signal_handler_t *sh = obs_source_get_signal_handler(source);
+	signal_handler_add(sh, "void unhooked(ptr source)");
+	signal_handler_add(
+		sh,
+		"void hooked(ptr source, string executable)");
+
 	proc_handler_t *ph = obs_source_get_proc_handler(source);
 	proc_handler_add(
 		ph,
@@ -391,6 +397,30 @@ static vkcapture_client_t *find_client_by_id(int id)
         }
     }
     return client;
+}
+
+static void fire_hooked_signal(vkcapture_source_t *ctx, vkcapture_client_t *client)
+{
+    blog(LOG_INFO, "Firing hooked");
+    signal_handler_t *sh = obs_source_get_signal_handler(ctx->source);
+    calldata_t data = {0};
+
+    calldata_set_ptr(&data, "source", ctx->source);
+    calldata_set_string(&data, "executable", client->cdata.exe);
+
+    signal_handler_signal(sh, "hooked", &data);
+    calldata_free(&data);
+}
+
+static void fire_unhooked_signal(vkcapture_source_t *ctx){
+    blog(LOG_INFO, "Firing unhooked");
+    signal_handler_t *sh = obs_source_get_signal_handler(ctx->source);
+    calldata_t data = {0};
+
+    calldata_set_ptr(&data, "source", ctx->source);
+
+    signal_handler_signal(sh, "unhooked", &data);
+    calldata_free(&data);
 }
 
 static void vkcapture_get_hooked(void *data, calldata_t *cd)
@@ -459,15 +489,21 @@ static void activate_client(vkcapture_source_t *ctx, vkcapture_client_t *client,
         blog(LOG_WARNING, "Socket write error: %s", strerror(errno));
     }
     client->timeout = clock_ns() + 5000000000; // 5s timeout
+
+    if(activate) {
+        fire_hooked_signal(ctx, client);
+    } else {
+        fire_unhooked_signal(ctx);
+    }
 }
 
 static void vkcapture_source_video_tick(void *data, float seconds)
 {
     vkcapture_source_t *ctx = data;
 
-    if (!obs_source_showing(ctx->source)) {
-        return;
-    }
+    // if (!obs_source_showing(ctx->source)) {
+    //     return;
+    // }
 
     pthread_mutex_lock(&server.mutex);
 
@@ -476,6 +512,7 @@ static void vkcapture_source_video_tick(void *data, float seconds)
         if (!client) {
             ctx->client_id = 0;
             destroy_texture(ctx);
+            fire_unhooked_signal(ctx);
         } else if (ctx->buf_id != client->buf_id) {
             destroy_texture(ctx);
             memcpy(&ctx->tdata, &client->tdata, sizeof(client->tdata));
