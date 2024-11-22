@@ -1793,6 +1793,7 @@ static void VKAPI_CALL OBS_DestroySwapchainKHR(VkDevice device,
 #ifndef NDEBUG
     hlog("DestroySwapchainKHR");
 #endif
+    hlog("DestroySwapchainKHR");
 
     struct vk_data *data = get_device_data(device);
     struct vk_device_funcs *funcs = &data->funcs;
@@ -1951,6 +1952,7 @@ static PFN_vkVoidFunction VKAPI_CALL OBS_GetInstanceProcAddr(VkInstance instance
 
 VKAPI_ATTR VkResult VKAPI_CALL OBS_Negotiate(VkNegotiateLayerInterface *nli)
 {
+    hlog("OBS_Negotiate");
     if (nli->loaderLayerInterfaceVersion >= 2) {
         nli->sType = LAYER_NEGOTIATE_INTERFACE_STRUCT;
         nli->pNext = NULL;

@@ -111,6 +111,7 @@ static bool capture_try_connect()
 
 void capture_init()
 {
+    hlog("capture_init %d", data.connfd);
     memset(&data, 0, sizeof(data));
     data.connfd = -1;
 }
@@ -123,6 +124,10 @@ void capture_update_socket()
         return;
     }
     last_check = now;
+
+    if(data.connfd < 0) {
+        hlog("No connection?");
+    }
 
     if (data.connfd < 0 && !capture_try_connect()) {
         return;
@@ -154,6 +159,7 @@ void capture_update_socket()
         }
     }
     if (n <= 0) {
+        hlog("Closing connection in capture_update_socket");
         close(data.connfd);
         data.connfd = -1;
         data.accepted = false;
